@@ -5,6 +5,8 @@ Ads Library and turns the results into a clean PDF report. It runs on its own
 from the command line, and it also ships with a Claude Code skill and a one-step
 installer.
 
+![Example PDF report produced by report.py](docs/report_example.png)
+
 ## Important: what this data is (and is not)
 
 The TikTok Ads Library is a transparency tool that exists because of the EU
