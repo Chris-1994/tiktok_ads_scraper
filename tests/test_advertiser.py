@@ -35,3 +35,19 @@ def test_cache_roundtrip(tmp_path):
 
 def test_cached_biz_id_missing_file(tmp_path):
     assert advertiser.cached_biz_id(str(tmp_path / "nope.json"), "x") is None
+
+
+def test_choose_multiple_exact_same_id_returns_first():
+    candidates = [
+        {"advertiser": "Gymshark", "biz_id": "111"},
+        {"advertiser": "Gymshark", "biz_id": "111"},
+    ]
+    assert advertiser.choose_candidate("gymshark", candidates)["biz_id"] == "111"
+
+
+def test_choose_substring_matches_same_id():
+    candidates = [
+        {"advertiser": "Gymshark UK", "biz_id": "111"},
+        {"advertiser": "Gymshark US", "biz_id": "111"},
+    ]
+    assert advertiser.choose_candidate("gymshark", candidates)["biz_id"] == "111"
