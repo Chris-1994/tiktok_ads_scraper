@@ -40,6 +40,26 @@ def save_brand(path, brand, biz_id, exact_name, region):
         json.dump(data, handle, indent=2)
 
 
+def resolve(brand, region, browser, brands_path):
+    """Resolve a brand to its business id, using the cache when present.
+
+    On a cache miss this drives a live advertiser search through the browser.
+    Returns the resolved entry, or an ambiguous result carrying the candidate
+    list so the caller can ask the user to choose.
+    """
+    cached = cached_biz_id(brands_path, brand)
+    if cached:
+        return load_brands(brands_path)[(brand or "").strip().lower()]
+
+    candidates = browser.search_advertisers(brand, region)
+    chosen = choose_candidate(brand, candidates)
+    if not chosen:
+        return {"ambiguous": True, "candidates": candidates}
+
+    save_brand(brands_path, brand, chosen["biz_id"], chosen["advertiser"], region)
+    return {"biz_id": chosen["biz_id"], "exact_name": chosen["advertiser"], "region": region}
+
+
 def choose_candidate(brand, candidates):
     """Pick the single best advertiser candidate, or None when ambiguous.
 

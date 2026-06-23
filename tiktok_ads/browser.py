@@ -119,6 +119,47 @@ class AdsLibraryBrowser:
         time.sleep(DETAIL_RENDER_WAIT_SECONDS)
         return self.page.evaluate(extract.DETAIL_JS)
 
+    def search_advertisers(self, brand, region):
+        """Find advertiser business-id candidates for a brand.
+
+        The TikTok Ads Library only exposes the numeric adv_biz_ids on the ad
+        detail page (in the "See all ads" anchor).  This method:
+          1. Loads the keyword-search list page for the brand.
+          2. Collects every distinct ad_id visible on that page.
+          3. Visits each detail page in turn until at least one candidate whose
+             advertiser handle contains the brand keyword is found, or all ids
+             are exhausted (max 10 detail pages to limit latency).
+        Returns a de-duplicated list of {advertiser, biz_id} dicts.
+        """
+        start_ms, end_ms = time_window_ms(365)
+        url = build_list_url(region, start_ms, end_ms, brand)
+        self.open_list(url)
+        rows = self.extract_list()
+
+        seen_biz = set()
+        candidates = []
+        needle = (brand or "").strip().lower()
+
+        for row in rows[:10]:
+            detail_url = row.get("detail_url", "")
+            if not detail_url:
+                continue
+            self.page.goto(detail_url, wait_until="domcontentloaded")
+            time.sleep(DETAIL_RENDER_WAIT_SECONDS)
+            found = self.page.evaluate(extract.ADVERTISER_JS)
+            for item in found:
+                biz_id = item.get("biz_id", "")
+                advertiser_name = item.get("advertiser", "")
+                if not biz_id or biz_id in seen_biz:
+                    continue
+                seen_biz.add(biz_id)
+                candidates.append(item)
+                # Short-circuit when we find a match for the brand keyword
+                if needle and needle in advertiser_name.lower():
+                    return candidates
+
+        return candidates
+
 
 def collect_list_rows(browser, limit):
     """Page through the list until limit rows are seen or no new ads appear.

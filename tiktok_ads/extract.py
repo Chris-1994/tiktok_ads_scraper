@@ -71,6 +71,49 @@ DETAIL_JS = r"""
 """
 
 
+# JavaScript that scans an ad detail page for the advertiser business id.
+#
+# On library.tiktok.com the "See all ads" link on a detail page carries both
+# adv_name (the exact advertiser handle) and adv_biz_ids (the numeric business
+# id) as URL parameters.  No other page type reliably exposes the biz id.
+#
+# Falls back to scanning embedded <script> JSON blobs for the same fields in
+# case the link format changes.
+ADVERTISER_JS = r"""
+() => {
+  const out = [];
+  const seen = new Set();
+  const push = (name, id) => {
+    name = (name || '').trim();
+    id = String(id || '');
+    if (!name || !id) return;
+    const key = name + '|' + id;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ advertiser: name, biz_id: id });
+  };
+  // Primary: "See all ads" anchor on the detail page carries adv_name and adv_biz_ids
+  for (const a of document.querySelectorAll('a[href]')) {
+    const href = a.getAttribute('href') || '';
+    const bizM = href.match(/adv_biz_ids=(\d{5,})/i);
+    if (!bizM) continue;
+    const nameM = href.match(/adv_name=([^&]+)/i);
+    const name = nameM ? decodeURIComponent(nameM[1]) : (a.innerText || a.getAttribute('title') || '');
+    push(name, bizM[1]);
+  }
+  // Fallback: JSON blobs in <script> tags (id before name variant)
+  for (const s of document.querySelectorAll('script')) {
+    const txt = s.textContent || '';
+    if (!/adv_biz_id|advertiser_id|business_id/i.test(txt)) continue;
+    const re = /"(?:adv_biz_id|advertiser_id|business_id)"\s*:\s*"?(\d{5,})"?[\s\S]{0,120}?"(?:advertiser_name|adv_name|name)"\s*:\s*"([^"]+)"/gi;
+    let m;
+    while ((m = re.exec(txt))) push(m[2], m[1]);
+  }
+  return out;
+}
+"""
+
+
 def parse_active_days(first_shown, last_shown):
     """Return whole days between two MM/DD/YYYY dates.
 
