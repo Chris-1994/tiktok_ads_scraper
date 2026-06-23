@@ -48,6 +48,20 @@ To locate the official Gymshark account, an operator should:
 
 After that, `resolve('gymshark', 'GB', browser, path)` returns the cached entry instantly.
 
+## Video Download
+
+**Date confirmed:** 2026-06-23  
+**Verified by:** Task-7 live sanity check (headless Playwright, brand=gymshark, region=GB, 30-day window)
+
+The `video_url` returned by `DETAIL_JS` on a real ad detail page is a **direct HTTPS URL** (not a `blob:` or streamed source). The URL points to a TikTok CDN proxy endpoint on `library.tiktok.com/api/v1/cdn/...`.
+
+Calling `browser.fetch_bytes(video_url)` via the Playwright session request context:
+- Returned **791,202 bytes**
+- First 12 bytes (hex): `000000206674797069736f6d` — a valid ISO Base Media (MP4) **ftyp box**
+- **Conclusion: the request-context GET approach works.** The session cookies/headers carried by the Playwright context are sufficient to download the video.
+
+No follow-up network-capture fallback is needed for the current CDN format.
+
 ## Fields NOT Present in List Page HTML
 
 Checked the full rendered HTML of the list page; none of the following appeared:  

@@ -160,6 +160,16 @@ class AdsLibraryBrowser:
 
         return candidates
 
+    def fetch_bytes(self, url):
+        """Fetch a URL using the session's request context. None on failure."""
+        try:
+            response = self._context.request.get(url)
+            if response.ok:
+                return response.body()
+        except Exception:
+            return None
+        return None
+
 
 def collect_list_rows(browser, limit):
     """Page through the list until limit rows are seen or no new ads appear.
