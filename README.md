@@ -137,8 +137,8 @@ The repository bundles two Claude Code skills, both copied into your
 - **`tiktok-ad-report`** — scrape a brand and build a PDF report. Just ask Claude
   Code to research a brand's TikTok ads and it walks through the steps for you.
 - **`tiktok-ad-brief`** — after a `--download` run, analyze the winning videos
-  (frames + transcripts) and write a `brief.md` of creative patterns and
-  ready-to-shoot ad concepts.
+  (frames + transcripts) and write a `brief.md` (plus a styled `brief.pdf`) of
+  creative patterns and ready-to-shoot ad concepts.
 
 The skills live in `skills/`.
 

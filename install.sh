@@ -18,6 +18,10 @@ echo "==> Installing Python dependencies"
 pip install --upgrade pip >/dev/null
 pip install -r requirements.txt
 
+echo "==> Installing optional transcription (faster-whisper)"
+pip install "faster-whisper>=1.0" \
+  || echo "    Skipped: no faster-whisper wheel for this Python. The brief runs frames-only."
+
 echo "==> Installing chromium for Playwright"
 python -m playwright install chromium
 

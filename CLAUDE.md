@@ -55,8 +55,9 @@ python report.py --csv output/<brand>/winners.csv --title "<title>"
 
 - **tiktok-ad-report** — scrape a brand and build a PDF report.
 - **tiktok-ad-brief** — after a `--download` run, analyze the winners' frames and
-  transcripts and write `output/<brand>/brief.md` (creative patterns plus
-  ready-to-shoot new-ad concepts).
+  transcripts and write `output/<brand>/brief.md` plus a styled `brief.pdf`
+  (creative patterns plus ready-to-shoot new-ad concepts). Render the PDF with
+  `python brief_pdf.py --md output/<brand>/brief.md`.
 
 ## Data caveats (tell the user)
 

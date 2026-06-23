@@ -5,7 +5,7 @@ description: Analyze a scraped competitor's winning TikTok ads and write a per-b
 
 # TikTok Ad Brief
 
-Turn a scraped brand's winning ads into one `brief.md` a video-generation AI can build from.
+Turn a scraped brand's winning ads into one `brief.md` (plus a styled `brief.pdf`) a video-generation AI can build from.
 
 ## Inputs
 
@@ -20,6 +20,9 @@ Everything lives under `output/<brand>/` (produced by `scraper.py --download`):
 2. For each ad: read its keyframes (look at hook frame, middle, end) and its transcript if present. Note the hook style, format (talking-head, demo, UGC, text-on-screen), pacing, on-screen text, copy angle, and CTA.
 3. Find what the top winners share. Back every pattern with the specific `ad_id`s that show it. State plainly when transcripts were missing so the spoken-hook analysis is known to be partial.
 4. Write `output/<brand>/brief.md` with exactly these two sections.
+5. Render the brief to a styled, shareable PDF:
+   `python brief_pdf.py --md output/<brand>/brief.md --title "<Brand> — New Ad Concepts"`
+   This writes `output/<brand>/brief.pdf` next to the markdown.
 
 ## brief.md structure
 

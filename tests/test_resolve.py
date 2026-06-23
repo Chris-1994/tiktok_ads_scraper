@@ -55,19 +55,22 @@ def test_resolve_cache_hit_is_case_insensitive(tmp_path):
 
 
 def test_resolve_successful_live_lookup(tmp_path):
-    """resolve() calls browser, picks the right candidate, saves, and returns it."""
+    """resolve() calls browser, picks the right candidate, saves, and returns it.
+
+    Uses a brand that is not in BUILTIN_BRANDS so the live-lookup path runs.
+    """
     brands_path = str(tmp_path / "brands.json")
     candidates = [
-        {"advertiser": "Gymshark", "biz_id": "12345"},
-        {"advertiser": "Gymshark Fan Page", "biz_id": "99999"},
+        {"advertiser": "Puma", "biz_id": "12345"},
+        {"advertiser": "Puma Fan Page", "biz_id": "99999"},
     ]
     browser = FakeBrowser(candidates)
 
-    result = advertiser.resolve("gymshark", "GB", browser, brands_path)
+    result = advertiser.resolve("puma", "GB", browser, brands_path)
 
-    assert result == {"biz_id": "12345", "exact_name": "Gymshark", "region": "GB"}
+    assert result == {"biz_id": "12345", "exact_name": "Puma", "region": "GB"}
     # Should be persisted to cache
-    assert advertiser.cached_biz_id(brands_path, "gymshark") == "12345"
+    assert advertiser.cached_biz_id(brands_path, "puma") == "12345"
 
 
 def test_resolve_ambiguous(tmp_path):

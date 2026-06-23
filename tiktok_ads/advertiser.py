@@ -9,6 +9,18 @@ import json
 import os
 
 
+# Built-in seeds for well-known advertisers whose fuzzy keyword search does not
+# surface their exact account. Lets `--brand gymshark` resolve with no setup,
+# which keeps the bundled demo a one-command run.
+BUILTIN_BRANDS = {
+    "gymshark": {
+        "biz_id": "7647240890083328016",
+        "exact_name": "GYMSHARK LTD",
+        "region": "GB",
+    },
+}
+
+
 def load_brands(path):
     """Return the cached brand map, or an empty dict if missing or invalid."""
     if not path or not os.path.exists(path):
@@ -50,6 +62,10 @@ def resolve(brand, region, browser, brands_path):
     cached = cached_biz_id(brands_path, brand)
     if cached:
         return load_brands(brands_path)[(brand or "").strip().lower()]
+
+    builtin = BUILTIN_BRANDS.get((brand or "").strip().lower())
+    if builtin:
+        return builtin
 
     candidates = browser.search_advertisers(brand, region)
     chosen = choose_candidate(brand, candidates)
