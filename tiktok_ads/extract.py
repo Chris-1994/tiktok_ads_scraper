@@ -65,7 +65,7 @@ DETAIL_JS = r"""
     caption_text: g(/Ad caption\s*\n?\s*([^\n]+)/i),
     objective: g(/(?:Advertising objectives?|Objective)s?:?\s*([^\n]+)/i),
     paid_for_by: g(/paid for by:?\s*([^\n]+)/i),
-    video_url: v ? (v.getAttribute('src') || '') : ''
+    video_url: v ? (v.getAttribute('src') || v.currentSrc || '') : ''
   };
 }
 """

@@ -24,6 +24,7 @@ VIEWPORT = {"width": 1280, "height": 900}
 LIST_RENDER_WAIT_SECONDS = 5
 VIEW_MORE_WAIT_SECONDS = 3
 DETAIL_RENDER_WAIT_SECONDS = 3
+DETAIL_VIDEO_WAIT_SECONDS = 8
 
 
 def build_list_url(region, start_ms, end_ms, brand, biz_id=""):
@@ -114,9 +115,21 @@ class AdsLibraryBrowser:
         return bool(clicked)
 
     def extract_detail(self, detail_url):
-        """Open a detail page, extract richer fields, and return them as a dict."""
+        """Open a detail page, wait for the video to render, and return fields.
+
+        The ad video src is attached after load, so we wait for a <video> with a
+        usable source before reading. If it never appears (rare, non-video page),
+        we fall back to a fixed settle and read whatever is present.
+        """
         self.page.goto(detail_url, wait_until="domcontentloaded")
-        time.sleep(DETAIL_RENDER_WAIT_SECONDS)
+        try:
+            self.page.wait_for_function(
+                "() => { const v = document.querySelector('video');"
+                " return !!(v && (v.getAttribute('src') || v.currentSrc)); }",
+                timeout=DETAIL_VIDEO_WAIT_SECONDS * 1000,
+            )
+        except Exception:
+            time.sleep(DETAIL_RENDER_WAIT_SECONDS)
         return self.page.evaluate(extract.DETAIL_JS)
 
     def search_advertisers(self, brand, region):
