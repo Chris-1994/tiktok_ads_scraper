@@ -56,7 +56,7 @@ def resolve_brand(brand, region, browser):
             print("Seed the right one into brands.json and re-run.")
         return None
     print(f"Resolved {brand} -> biz_id {result['biz_id']} ({result['exact_name']})")
-    return result["biz_id"]
+    return result
 
 
 def enrich_row(row, brand, browser):
@@ -88,14 +88,18 @@ def main():
     try:
         browser.__enter__()
 
-        biz_id = resolve_brand(args.brand, args.region, browser) if args.brand else ""
-        if args.brand and biz_id is None:
+        resolved = resolve_brand(args.brand, args.region, browser) if args.brand else None
+        if args.brand and resolved is None:
             return
         if args.resolve:
             return
 
+        biz_id = resolved["biz_id"] if resolved else ""
+        exact_name = resolved["exact_name"] if resolved else ""
         start_ms, end_ms = time_window_ms(args.days)
-        url = build_list_url(args.region, start_ms, end_ms, args.brand, biz_id=biz_id or "")
+        url = build_list_url(
+            args.region, start_ms, end_ms, args.brand, biz_id=biz_id, exact_name=exact_name
+        )
         print(f"Scraping: region={args.region}, brand={args.brand or 'all'}, days={args.days}")
         print(f"URL: {url}")
 

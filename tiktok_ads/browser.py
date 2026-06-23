@@ -27,15 +27,22 @@ DETAIL_RENDER_WAIT_SECONDS = 3
 DETAIL_VIDEO_WAIT_SECONDS = 8
 
 
-def build_list_url(region, start_ms, end_ms, brand, biz_id=""):
+def build_list_url(region, start_ms, end_ms, brand, biz_id="", exact_name=""):
     """Build the Ads Library list URL for the given region and time window.
 
-    start_ms and end_ms are epoch milliseconds. When biz_id is supplied the
-    URL isolates that exact advertiser account (adv_biz_ids) and the fuzzy
-    adv_name is cleared. When biz_id is empty, brand is used as a fuzzy
-    adv_name keyword; an empty brand returns all advertisers.
+    start_ms and end_ms are epoch milliseconds. When biz_id is supplied the URL
+    isolates that exact advertiser account with query_type 2; query_type 2 needs
+    the exact advertiser name to travel with it, so adv_name is set to exact_name
+    (falling back to brand) rather than cleared. When biz_id is empty, brand is
+    used as a fuzzy adv_name keyword with query_type 1; an empty brand returns
+    all advertisers.
     """
-    adv_name = "" if biz_id else (quote(brand) if brand else "")
+    if biz_id:
+        adv_name = quote(exact_name or brand)
+        query_type = 2
+    else:
+        adv_name = quote(brand) if brand else ""
+        query_type = 1
     return (
         "https://library.tiktok.com/ads"
         f"?region={region}"
@@ -43,7 +50,7 @@ def build_list_url(region, start_ms, end_ms, brand, biz_id=""):
         f"&end_time={end_ms}"
         f"&adv_name={adv_name}"
         f"&adv_biz_ids={biz_id}"
-        "&query_type=1"
+        f"&query_type={query_type}"
         "&sort_type=last_shown_date,desc"
     )
 
