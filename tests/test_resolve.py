@@ -34,6 +34,26 @@ def test_resolve_cache_hit(tmp_path):
     assert result["exact_name"] == "Gymshark"
 
 
+def test_resolve_cache_hit_is_case_insensitive(tmp_path):
+    """A cache seeded lowercase resolves a differently-cased brand without the browser."""
+    brands_path = str(tmp_path / "brands.json")
+    advertiser.save_brand(brands_path, "gymshark", "555", "Gymshark", "GB")
+
+    class GuardBrowser:
+        def __init__(self):
+            self.called = False
+
+        def search_advertisers(self, brand, region):
+            self.called = True
+            raise AssertionError("browser must not be consulted on a cache hit")
+
+    browser = GuardBrowser()
+    result = advertiser.resolve("Gymshark", "GB", browser, brands_path)
+
+    assert result["biz_id"] == "555"
+    assert browser.called is False
+
+
 def test_resolve_successful_live_lookup(tmp_path):
     """resolve() calls browser, picks the right candidate, saves, and returns it."""
     brands_path = str(tmp_path / "brands.json")
