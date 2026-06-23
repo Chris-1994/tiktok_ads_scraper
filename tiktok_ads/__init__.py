@@ -7,4 +7,4 @@ Modules:
   report   : Build an HTML report from a CSV and render it to PDF.
 """
 
-__all__ = ["browser", "extract", "storage", "report"]
+__all__ = ["browser", "extract", "storage", "report", "ranking", "advertiser", "download", "media"]

@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""CLI entry point for scraping the TikTok Ads Library.
+"""CLI for scraping a competitor's TikTok ads, ranking winners, and pulling video.
 
-Example:
-    python scraper.py --brand nike --region GB --days 30 --limit 50
-    python scraper.py --region FR --detailed --limit 20
+Examples:
+    # resolve and cache a brand's business id (optional; scraping does this too)
+    python scraper.py --resolve --brand "gymshark" --region GB
 
-Output is written incrementally to a CSV so a run can be resumed safely.
+    # scrape the brand's own account, rank, keep the top 20, download + process
+    python scraper.py --brand "gymshark" --region GB --days 30 --top 20 --download
+
+Output is written under output/<brand>/ so a run can be resumed safely.
 """
 
 import argparse
 from pathlib import Path
 
-from tiktok_ads import extract, storage
+from tiktok_ads import advertiser, download, extract, media, ranking, storage
 from tiktok_ads.browser import (
     AdsLibraryBrowser,
     build_list_url,
@@ -20,26 +23,40 @@ from tiktok_ads.browser import (
 )
 
 ROOT = Path(__file__).resolve().parent
+OUTPUT_ROOT = ROOT / "output"
+BRANDS_PATH = str(ROOT / "brands.json")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Scrape ads from the TikTok Ads Library (EU/EEA transparency data)."
+        description="Scrape, rank, and download a competitor's TikTok ads."
     )
-    parser.add_argument("--brand", default="", help="Advertiser keyword. Omit to scrape all advertisers.")
-    parser.add_argument("--region", default="GB", help="ISO country code, EU/EEA only (e.g. GB, FR, DE, AT).")
+    parser.add_argument("--brand", default="", help="Brand name to target.")
+    parser.add_argument("--region", default="GB", help="ISO country code, EU/EEA only.")
     parser.add_argument("--days", type=int, default=30, help="Look-back window in days.")
-    parser.add_argument("--limit", type=int, default=50, help="Target number of ads to collect.")
-    parser.add_argument("--detailed", action="store_true", help="Visit each ad detail page for richer fields.")
-    parser.add_argument("--headful", action="store_true", help="Show the browser window (default is headless).")
-    parser.add_argument("--out", default="", help="Output CSV path. Default is output/tiktok_ads_<REGION>_<brand-or-all>.csv")
+    parser.add_argument("--limit", type=int, default=100, help="Scrape pool size before ranking.")
+    parser.add_argument("--top", type=int, default=20, help="How many ranked winners to keep.")
+    parser.add_argument("--download", action="store_true", help="Download and process winner videos.")
+    parser.add_argument("--resolve", action="store_true", help="Resolve the brand id and exit.")
+    parser.add_argument("--headful", action="store_true", help="Show the browser window.")
     return parser.parse_args()
 
 
-def default_out_path(region, brand):
-    """Build the default output CSV path under the local output folder."""
-    slug = brand.strip().lower().replace(" ", "-") if brand.strip() else "all"
-    return str(ROOT / "output" / f"tiktok_ads_{region.upper()}_{slug}.csv")
+def resolve_brand(brand, region, browser):
+    """Resolve a brand id, printing candidates and stopping if ambiguous."""
+    result = advertiser.resolve(brand, region, browser, BRANDS_PATH)
+    if result.get("ambiguous"):
+        candidates = result.get("candidates", [])
+        if not candidates:
+            print(f"No ads found for '{brand}' in region {region}. Try a different spelling or region.")
+        else:
+            print(f"Could not pin down '{brand}' to one account. Candidates:")
+            for cand in candidates:
+                print(f"  {cand['biz_id']}  {cand['advertiser']}")
+            print("Seed the right one into brands.json and re-run.")
+        return None
+    print(f"Resolved {brand} -> biz_id {result['biz_id']} ({result['exact_name']})")
+    return result["biz_id"]
 
 
 def enrich_row(row, brand, browser):
@@ -55,47 +72,64 @@ def enrich_row(row, brand, browser):
     return row
 
 
+def write_csv(path, fieldnames, rows):
+    """Write rows to a fresh CSV at path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with storage.CsvWriter(str(path), fieldnames) as writer:
+        for row in rows:
+            writer.write_row(row)
+
+
 def main():
     args = parse_args()
-    out_path = args.out or default_out_path(args.region, args.brand)
-
-    existing_ids = storage.load_existing_ids(out_path)
-    if existing_ids:
-        print(f"Resuming: {len(existing_ids)} ads already saved in {out_path}")
-
-    start_ms, end_ms = time_window_ms(args.days)
-    url = build_list_url(args.region, start_ms, end_ms, args.brand)
-    scope = args.brand if args.brand else "all advertisers"
-    print(f"Scraping TikTok Ads Library: region={args.region}, brand={scope}, days={args.days}, limit={args.limit}")
-    print(f"URL: {url}")
-
-    fieldnames = storage.columns_for(args.detailed)
-    saved = 0
+    paths = storage.brand_paths(OUTPUT_ROOT, args.brand)
 
     browser = AdsLibraryBrowser(headful=args.headful)
     try:
         browser.__enter__()
+
+        biz_id = resolve_brand(args.brand, args.region, browser) if args.brand else ""
+        if args.brand and biz_id is None:
+            return
+        if args.resolve:
+            return
+
+        start_ms, end_ms = time_window_ms(args.days)
+        url = build_list_url(args.region, start_ms, end_ms, args.brand, biz_id=biz_id or "")
+        print(f"Scraping: region={args.region}, brand={args.brand or 'all'}, days={args.days}")
+        print(f"URL: {url}")
+
         browser.open_list(url)
         rows = collect_list_rows(browser, args.limit)
-        print(f"Found {len(rows)} ads in the list. Saving new ones to {out_path}")
+        print(f"Found {len(rows)} ads. Ranking and keeping top {args.top}.")
 
-        with storage.CsvWriter(out_path, fieldnames) as writer:
-            for row in rows:
-                if saved >= args.limit:
-                    break
-                ad_id = row.get("ad_id")
-                if not ad_id or ad_id in existing_ids:
-                    continue
-                if args.detailed:
-                    enrich_row(row, args.brand, browser)
-                writer.write_row(row)
-                existing_ids.add(ad_id)
-                saved += 1
-                print(f"  [{saved}] {ad_id} {row.get('advertiser', '')[:40]} ({row.get('unique_users', '')})")
+        ranked = ranking.rank_rows(rows)
+        winners = ranked[: args.top] if args.top > 0 else ranked
+
+        write_csv(paths["ads_csv"], storage.columns_for(detailed=False, ranked=True), ranked)
+
+        for index, row in enumerate(winners, 1):
+            enrich_row(row, args.brand, browser)
+            print(f"  [{index}] {row.get('ad_id')} {row.get('advertiser', '')[:40]} score={row.get('winner_score')}")
+        write_csv(paths["winners_csv"], storage.columns_for(detailed=True, ranked=True), winners)
+        print(f"Wrote {paths['ads_csv']} and {paths['winners_csv']}")
+
+        if args.download:
+            saved = download.download_videos(browser, winners, paths["videos_dir"])
+            print(f"Downloaded {len(saved)} videos.")
+            for row in winners:
+                video = paths["videos_dir"] / f"{row.get('ad_id')}.mp4"
+                if video.exists():
+                    media.process_video(
+                        video,
+                        paths["frames_dir"] / row["ad_id"],
+                        paths["transcripts_dir"] / f"{row['ad_id']}.txt",
+                    )
+            print(f"Processed videos into {paths['frames_dir']} and {paths['transcripts_dir']}")
     finally:
         browser.close()
 
-    print(f"Done. Saved {saved} new ads. Output: {out_path}")
+    print(f"Done. Brand folder: {paths['dir']}")
 
 
 if __name__ == "__main__":

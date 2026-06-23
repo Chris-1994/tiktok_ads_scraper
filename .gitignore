@@ -4,6 +4,8 @@ __pycache__/
 output/*.csv
 output/*.pdf
 output/*.html
+output/*/
+brands.json
 .DS_Store
 
 !output/.gitkeep
