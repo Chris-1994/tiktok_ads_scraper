@@ -27,31 +27,33 @@ python -m playwright install chromium
 If the repository ships an `install.sh`, running `./install.sh` does all of the
 above in one step.
 
-### 2. Scrape ads
+### 2. Scrape and rank ads
 
 Run the scraper with a brand keyword and a region (ISO country code, EU/EEA
 only such as GB, FR, DE, AT):
 
 ```bash
-python scraper.py --brand <BRAND> --region GB --limit 50
+python scraper.py --brand <BRAND> --region GB --top 20
 ```
 
 Useful flags:
 
-- `--detailed` also opens each ad's detail page to capture the caption,
-  objective, "paid for by" line, and a video URL. It is slower but richer.
+- `--top <N>` keeps the top N ranked winners (default 20).
 - `--days <N>` sets the look-back window (default 30).
+- `--download` also downloads the winner videos and extracts keyframes and
+  transcripts (needs `ffmpeg`; transcripts need the optional `faster-whisper`).
 - Omit `--brand` to scrape all advertisers in the region.
 
-The scraper writes a CSV to `output/tiktok_ads_<REGION>_<brand-or-all>.csv` and
-appends each ad as it is found, so the run can be stopped and resumed.
+The scraper writes `output/<brand>/ads.csv` (all ads, ranked) and
+`output/<brand>/winners.csv` (the top N), appending as it goes so a run can be
+stopped and resumed.
 
 ### 3. Build the PDF report
 
 Point the report tool at the CSV the scraper produced:
 
 ```bash
-python report.py --csv output/tiktok_ads_GB_<BRAND>.csv
+python report.py --csv output/<BRAND>/winners.csv
 ```
 
 Add `--title "<your title>"` to set a custom heading, or `--out <path.pdf>` to
@@ -60,8 +62,10 @@ choose where the PDF lands. By default the PDF sits next to the CSV with a
 
 ## Where outputs land
 
-- CSV data: `output/tiktok_ads_<REGION>_<brand-or-all>.csv`
-- PDF report: same name and folder as the CSV, with a `.pdf` extension
+- All ads (ranked): `output/<brand>/ads.csv`
+- Top winners: `output/<brand>/winners.csv`
+- PDF report: next to the CSV, with a `.pdf` extension
+- With `--download`: `output/<brand>/videos/`, `frames/`, and `transcripts/`
 
 ## What to tell the user
 

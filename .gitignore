@@ -7,6 +7,11 @@ output/*.html
 output/*/
 brands.json
 .DS_Store
+.pytest_cache/
+
+# Development artifacts — kept local, never shipped
+.superpowers/
+docs/superpowers/
 
 !output/.gitkeep
 !examples/

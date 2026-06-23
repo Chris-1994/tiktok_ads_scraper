@@ -2,7 +2,7 @@
 
 A small, standalone Python and Playwright tool that scrapes the public TikTok
 Ads Library and turns the results into a clean PDF report. It runs on its own
-from the command line, and it also ships with a Claude Code skill and a one-step
+from the command line, and it also ships with Claude Code skills and a one-step
 installer.
 
 ![Example PDF report produced by report.py](docs/report_example.png)
@@ -23,29 +23,47 @@ Treat the output as directional competitive intelligence, not precise metrics.
 
 ## Features
 
-- Scrape ads by advertiser keyword, region, and look-back window.
-- Resume safely: each ad is written to disk the moment it is found, and a second
-  run skips ads already saved.
-- Optional detailed mode visits each ad's detail page for the caption,
-  objective, "paid for by" line, and a video URL.
+- Scrape a brand's ads by keyword, region, and look-back window. The brand is
+  auto-resolved to its advertiser id.
+- Rank ads with a deterministic, longevity-weighted "winner score" and keep the
+  top N.
+- Optionally download the winner videos and extract keyframes (plus transcripts
+  when the optional `faster-whisper` dependency is installed) for creative
+  analysis.
 - Generate a styled, professional A4 PDF report from any scraped CSV, complete
   with reach badges, clickable detail links, and an honest caveats note.
 - Headless by default, with a `--headful` flag when you want to watch.
 
 ## Quick start
 
-Clone the repository, then run the installer:
+Clone the repository:
 
 ```bash
 git clone https://github.com/Chris-1994/tiktok_ads_scraper.git
 cd tiktok_ads_scraper
+```
+
+### Set up with Claude (recommended)
+
+Open Claude Code in the folder and paste this:
+
+> Set up this project: run `./install.sh`, then run the tests to confirm it
+> works, and show me 2–3 example commands plus how to use the `tiktok-ad-report`
+> skill.
+
+Claude reads the bundled `CLAUDE.md`, runs the installer (virtual environment,
+dependencies, chromium, and the two skills), and gets you to a working setup.
+
+### Or install it yourself
+
+```bash
 ./install.sh
 ```
 
 The installer creates a virtual environment, installs the dependencies, downloads
-chromium for Playwright, and installs the bundled Claude Code skill.
+chromium for Playwright, and installs the bundled Claude Code skills.
 
-Prefer to do it by hand? Run these steps instead:
+Prefer fully manual steps? Run these instead:
 
 ```bash
 python3 -m venv .venv
@@ -58,41 +76,51 @@ python -m playwright install chromium
 
 Activate the environment first (`source .venv/bin/activate`), then:
 
-### Scrape a brand
+### Scrape and rank a brand
 
 ```bash
-python scraper.py --brand nike --region GB --limit 50
+python scraper.py --brand gymshark --region GB --days 30 --top 20
 ```
 
-### Scrape everything in a region
+This scrapes the brand's ads, ranks them by a longevity-weighted winner score,
+and writes `output/gymshark/ads.csv` (all ads) and `output/gymshark/winners.csv`
+(the top 20).
+
+### Download and process the winner videos
 
 ```bash
-python scraper.py --region FR --days 14 --limit 100
+python scraper.py --brand gymshark --region GB --top 20 --download
 ```
 
-### Detailed scrape (richer fields, slower)
+Adds `output/gymshark/videos/<ad_id>.mp4`, keyframes under
+`output/gymshark/frames/<ad_id>/`, and transcripts under
+`output/gymshark/transcripts/`. Downloading needs `ffmpeg` on your PATH;
+transcripts also need the optional `faster-whisper` dependency.
+
+### Resolve a brand id only
 
 ```bash
-python scraper.py --brand adidas --region DE --detailed --limit 25
+python scraper.py --resolve --brand gymshark --region GB
 ```
 
 ### Flags
 
 | Flag         | Default | Meaning                                                   |
 | ------------ | ------- | --------------------------------------------------------- |
-| `--brand`    | (all)   | Advertiser keyword. Omit to scrape all advertisers.       |
+| `--brand`    | (all)   | Brand keyword to target. Omit to scrape all advertisers.  |
 | `--region`   | `GB`    | ISO country code, EU/EEA only (GB, FR, DE, AT, and more). |
 | `--days`     | `30`    | Look-back window in days.                                 |
-| `--limit`    | `50`    | Target number of ads to collect.                          |
-| `--detailed` | off     | Also visit each ad's detail page for richer fields.       |
+| `--limit`    | `100`   | Scrape pool size collected before ranking.                |
+| `--top`      | `20`    | How many ranked winners to keep.                          |
+| `--download` | off     | Download and process the winner videos.                   |
+| `--resolve`  | off     | Resolve the brand id, print it, and exit.                 |
 | `--headful`  | off     | Show the browser window instead of running headless.      |
-| `--out`      | (auto)  | Output CSV path.                                          |
 
 ### Build a PDF report
 
 ```bash
-python report.py --csv output/tiktok_ads_GB_nike.csv
-python report.py --csv output/tiktok_ads_GB_nike.csv --title "Nike on TikTok"
+python report.py --csv output/gymshark/winners.csv
+python report.py --csv output/gymshark/winners.csv --title "Gymshark on TikTok"
 ```
 
 The PDF lands next to the CSV by default. Try it against the bundled sample:
@@ -101,25 +129,33 @@ The PDF lands next to the CSV by default. Try it against the bundled sample:
 python report.py --csv examples/sample_ads.csv --out output/sample_report.pdf
 ```
 
-## Claude Code skill
+## Claude Code skills
 
-The repository bundles a Claude Code skill named `tiktok-ad-report`. Once
-`install.sh` has run, you can simply ask Claude Code to scrape a brand from the
-TikTok Ads Library and build a PDF report, and it will walk through the steps
-for you. The skill lives in `skills/tiktok-ad-report/` and is copied into your
-Claude Code skills folder during install.
+The repository bundles two Claude Code skills, both copied into your
+`~/.claude/skills/` folder when `install.sh` runs:
+
+- **`tiktok-ad-report`** — scrape a brand and build a PDF report. Just ask Claude
+  Code to research a brand's TikTok ads and it walks through the steps for you.
+- **`tiktok-ad-brief`** — after a `--download` run, analyze the winning videos
+  (frames + transcripts) and write a `brief.md` of creative patterns and
+  ready-to-shoot ad concepts.
+
+The skills live in `skills/`.
 
 ## Output
 
-- CSV data is written to `output/tiktok_ads_<REGION>_<brand-or-all>.csv`.
-  - List mode columns: `ad_id, advertiser, first_shown, last_shown,
-    unique_users, detail_url`.
-  - Detailed mode adds: `caption_text, active_for_days, objective, paid_for_by,
-    video_url, mentions_brand`.
+Each run writes to `output/<brand>/`:
+
+- `ads.csv` — every ad found, ranked, with a `winner_score` column.
+- `winners.csv` — the top `--top` ads with richer detail fields
+  (`caption_text`, `active_for_days`, `objective`, `paid_for_by`, `video_url`,
+  `mentions_brand`).
+- With `--download`: `videos/<ad_id>.mp4`, `frames/<ad_id>/*.jpg`, and
+  `transcripts/<ad_id>.txt`.
 - PDF reports are written next to their CSV with a `.pdf` extension.
 
 The `output/` folder is git-ignored except for a `.gitkeep` placeholder, so your
-scraped data stays local.
+scraped data and downloaded videos stay local.
 
 ## Run in Docker (optional)
 
@@ -129,7 +165,7 @@ the official Playwright Python image, so chromium is already present:
 ```bash
 docker build -t tiktok-ads-scraper .
 docker run --rm -v "$PWD/output:/app/output" tiktok-ads-scraper \
-  --brand nike --region GB --limit 50
+  --brand gymshark --region GB --top 20
 ```
 
 ## Use responsibly

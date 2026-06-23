@@ -21,15 +21,19 @@ pip install -r requirements.txt
 echo "==> Installing chromium for Playwright"
 python -m playwright install chromium
 
-echo "==> Installing the Claude Code skill"
-SKILL_SRC="$SCRIPT_DIR/skills/tiktok-ad-report"
-SKILL_DEST="$HOME/.claude/skills/tiktok-ad-report"
-mkdir -p "$SKILL_DEST"
-cp -R "$SKILL_SRC/." "$SKILL_DEST/"
-echo "    Skill installed to $SKILL_DEST"
+echo "==> Installing the bundled Claude Code skills"
+for skill_dir in "$SCRIPT_DIR"/skills/*/; do
+  skill_name="$(basename "$skill_dir")"
+  skill_dest="$HOME/.claude/skills/$skill_name"
+  mkdir -p "$skill_dest"
+  cp -R "$skill_dir." "$skill_dest/"
+  echo "    Installed skill: $skill_name -> $skill_dest"
+done
 
 echo ""
 echo "==> Done. Next steps:"
 echo "    1. Activate the environment:   source .venv/bin/activate"
-echo "    2. Run a scrape:               python scraper.py --brand nike --region GB"
-echo "    3. Build a PDF report:         python report.py --csv output/tiktok_ads_GB_nike.csv"
+echo "    2. Scrape and rank a brand:    python scraper.py --brand gymshark --region GB --top 20"
+echo "    3. Build a PDF report:         python report.py --csv output/gymshark/winners.csv"
+echo ""
+echo "    Or open Claude Code in this folder and ask it to run a scrape for you."
