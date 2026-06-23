@@ -7,6 +7,7 @@ ad_ids that are already saved and skip them.
 
 import csv
 import os
+from pathlib import Path
 
 
 LIST_COLUMNS = [
@@ -27,12 +28,20 @@ DETAIL_COLUMNS = [
     "mentions_brand",
 ]
 
+RANK_COLUMN = "winner_score"
 
-def columns_for(detailed):
-    """Return the ordered column list for the chosen mode."""
+
+def columns_for(detailed, ranked=False):
+    """Return the ordered column list for the chosen mode.
+
+    When ranked is True a trailing winner_score column is appended.
+    """
+    cols = list(LIST_COLUMNS)
     if detailed:
-        return LIST_COLUMNS + DETAIL_COLUMNS
-    return list(LIST_COLUMNS)
+        cols += DETAIL_COLUMNS
+    if ranked:
+        cols.append(RANK_COLUMN)
+    return cols
 
 
 def load_existing_ids(path):
@@ -88,3 +97,23 @@ class CsvWriter:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+
+def brand_slug(brand):
+    """Lowercase, hyphenated folder name for a brand. Empty brand is "all"."""
+    cleaned = (brand or "").strip().lower()
+    return cleaned.replace(" ", "-") if cleaned else "all"
+
+
+def brand_paths(output_root, brand):
+    """Return the per-brand folder paths used by every stage."""
+    base = Path(output_root) / brand_slug(brand)
+    return {
+        "dir": base,
+        "ads_csv": base / "ads.csv",
+        "winners_csv": base / "winners.csv",
+        "videos_dir": base / "videos",
+        "frames_dir": base / "frames",
+        "transcripts_dir": base / "transcripts",
+        "brief_md": base / "brief.md",
+    }
