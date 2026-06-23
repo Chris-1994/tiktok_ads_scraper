@@ -61,7 +61,7 @@ def resolve_brand(brand, region, browser):
 
 def enrich_row(row, brand, browser):
     """Visit the detail page for a row and merge in the richer fields."""
-    detail = browser.extract_detail(row["detail_url"])
+    detail = browser.extract_detail(row.get("detail_url", ""))
     row.update(detail)
     row["active_for_days"] = extract.parse_active_days(
         row.get("first_shown", ""), row.get("last_shown", "")
@@ -118,12 +118,15 @@ def main():
             saved = download.download_videos(browser, winners, paths["videos_dir"])
             print(f"Downloaded {len(saved)} videos.")
             for row in winners:
-                video = paths["videos_dir"] / f"{row.get('ad_id')}.mp4"
+                ad_id = row.get("ad_id")
+                if not ad_id:
+                    continue
+                video = paths["videos_dir"] / f"{ad_id}.mp4"
                 if video.exists():
                     media.process_video(
                         video,
-                        paths["frames_dir"] / row["ad_id"],
-                        paths["transcripts_dir"] / f"{row['ad_id']}.txt",
+                        paths["frames_dir"] / ad_id,
+                        paths["transcripts_dir"] / f"{ad_id}.txt",
                     )
             print(f"Processed videos into {paths['frames_dir']} and {paths['transcripts_dir']}")
     finally:
