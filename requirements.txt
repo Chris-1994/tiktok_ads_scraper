@@ -1,1 +1,7 @@
 playwright>=1.40
+pytest>=8
+
+# Optional: spoken-audio transcription for video-aware analysis.
+# Install only if it has a wheel for your Python version. The scraper
+# degrades to frames-only when this package is absent.
+# faster-whisper>=1.0
